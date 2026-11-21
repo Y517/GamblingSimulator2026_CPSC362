@@ -1,0 +1,606 @@
+import tkinter as tk
+from tkinter import messagebox, filedialog
+import random
+import time
+
+STARTING_MONEY = 1000.0
+
+
+class GamblingApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Lucky Lounge - Gambling Simulator")
+        self.root.geometry("900x650")
+        self.root.minsize(800, 600)
+
+        self.money = STARTING_MONEY
+        self.cars = [
+            ("Red", "#e74c3c"),
+            ("Blue", "#3498db"),
+            ("Green", "#2ecc71"),
+            ("Yellow", "#f1c40f"),
+            ("Purple", "#9b59b6")
+        ]
+
+        self.money_var = tk.StringVar()
+        self.update_money()
+
+        self.build_header()
+        self.build_menu()
+        self.show_home()
+
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    # ---------- General UI ----------
+
+    def build_header(self):
+        header = tk.Frame(self.root, bg="#20252b", height=65)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+
+        tk.Label(
+            header, text="LUCKY LOUNGE",
+            font=("Arial", 22, "bold"),
+            fg="white", bg="#20252b"
+        ).pack(side="left", padx=20)
+
+        tk.Label(
+            header, textvariable=self.money_var,
+            font=("Arial", 18, "bold"),
+            fg="#f1c40f", bg="#20252b"
+        ).pack(side="right", padx=20)
+
+    def build_menu(self):
+        menu = tk.Frame(self.root, bg="#30363d")
+        menu.pack(fill="x")
+
+        buttons = [
+            ("Home", self.show_home),
+            ("Car Race", self.show_car_race),
+            ("3-Picture Game", self.show_picture_game),
+            ("Color Wheel", self.show_color_wheel),
+            ("Save", self.save_game),
+            ("Load", self.load_game),
+        ]
+
+        for text, command in buttons:
+            tk.Button(
+                menu, text=text, command=command,
+                bg="#444b53", fg="white",
+                activebackground="#59636d",
+                activeforeground="white",
+                relief="flat",
+                padx=12, pady=8
+            ).pack(side="left", padx=3, pady=5)
+
+    def clear_screen(self):
+        if hasattr(self, "game_frame"):
+            self.game_frame.destroy()
+
+        self.game_frame = tk.Frame(self.root, bg="#f4f4f4")
+        self.game_frame.pack(fill="both", expand=True)
+
+    def title(self, text, subtitle=None):
+        tk.Label(
+            self.game_frame, text=text,
+            font=("Arial", 25, "bold"),
+            bg="#f4f4f4"
+        ).pack(pady=(25, 5))
+
+        if subtitle:
+            tk.Label(
+                self.game_frame, text=subtitle,
+                font=("Arial", 12),
+                bg="#f4f4f4", fg="#555555"
+            ).pack(pady=(0, 15))
+
+    def money_amount(self, entry):
+        try:
+            amount = float(entry.get())
+            if amount <= 0:
+                raise ValueError
+            if amount > self.money:
+                messagebox.showerror("Invalid Bet", "You do not have enough money.")
+                return None
+            return amount
+        except ValueError:
+            messagebox.showerror("Invalid Bet", "Enter a positive betting amount.")
+            return None
+
+    def update_money(self):
+        self.money_var.set(f"Balance: ${self.money:,.2f}")
+
+    # ---------- Home ----------
+
+    def show_home(self):
+        self.clear_screen()
+        self.title(
+            "Welcome to Lucky Lounge",
+            "A single-player gambling simulator. You start with $1,000."
+        )
+
+        info = tk.Frame(self.game_frame, bg="white", bd=1, relief="solid")
+        info.pack(padx=50, pady=20, fill="x")
+
+        tk.Label(
+            info,
+            text="Choose a game",
+            font=("Arial", 18, "bold"),
+            bg="white"
+        ).pack(pady=15)
+
+        games = [
+            ("🏎  Car Race", "Bet on one of five colored cars.", self.show_car_race),
+            ("🎰  3-Picture Game", "Pull the lever and match pictures.", self.show_picture_game),
+            ("🎡  Color Wheel", "Pick red, black, or green and spin.", self.show_color_wheel),
+        ]
+
+        for name, description, command in games:
+            frame = tk.Frame(info, bg="#fafafa")
+            frame.pack(fill="x", padx=25, pady=6)
+
+            tk.Button(
+                frame, text=name, command=command,
+                font=("Arial", 14, "bold"),
+                width=20, pady=8
+            ).pack(side="left", padx=10, pady=8)
+
+            tk.Label(
+                frame, text=description,
+                font=("Arial", 12),
+                bg="#fafafa"
+            ).pack(side="left", padx=10)
+
+        tk.Label(
+            self.game_frame,
+            text="Saving creates a simple .txt file containing your balance.",
+            font=("Arial", 11),
+            bg="#f4f4f4",
+            fg="#666666"
+        ).pack(pady=20)
+
+    # ---------- Game 1: Car Race ----------
+
+    def show_car_race(self):
+        self.clear_screen()
+        self.title(
+            "🏎 Car Race",
+            "Choose a car and bet on which one finishes first."
+        )
+
+        controls = tk.Frame(self.game_frame, bg="#f4f4f4")
+        controls.pack(pady=5)
+
+        tk.Label(controls, text="Bet:", bg="#f4f4f4").grid(row=0, column=0, padx=5)
+        self.car_bet_entry = tk.Entry(controls, width=12)
+        self.car_bet_entry.insert(0, "50")
+        self.car_bet_entry.grid(row=0, column=1, padx=5)
+
+        tk.Label(controls, text="Car:", bg="#f4f4f4").grid(row=0, column=2, padx=5)
+
+        self.car_choice = tk.StringVar(value="Red")
+        tk.OptionMenu(
+            controls, self.car_choice,
+            *[name for name, color in self.cars]
+        ).grid(row=0, column=3, padx=5)
+
+        tk.Button(
+            controls, text="START RACE",
+            command=self.start_race,
+            font=("Arial", 11, "bold")
+        ).grid(row=0, column=4, padx=15)
+
+        self.race_canvas = tk.Canvas(
+            self.game_frame, width=800, height=320,
+            bg="#dff0d8", highlightthickness=1
+        )
+        self.race_canvas.pack(pady=20)
+
+        self.race_result = tk.Label(
+            self.game_frame, text="Place your bet to start.",
+            font=("Arial", 14, "bold"),
+            bg="#f4f4f4"
+        )
+        self.race_result.pack()
+
+        self.racing = False
+
+    def start_race(self):
+        if self.racing:
+            return
+
+        amount = self.money_amount(self.car_bet_entry)
+        if amount is None:
+            return
+
+        self.money -= amount
+        self.update_money()
+        self.racing = True
+
+        self.race_canvas.delete("all")
+
+        self.race_positions = {}
+        self.race_speeds = {}
+        self.race_cars = {}
+
+        for i, (name, color) in enumerate(self.cars):
+            y = 35 + i * 55
+            self.race_positions[name] = 20
+            self.race_speeds[name] = random.uniform(4.0, 10.0)
+
+            self.race_canvas.create_text(
+                8, y + 12, text=name[0],
+                anchor="w", font=("Arial", 10, "bold")
+            )
+
+            self.race_canvas.create_line(
+                60, y + 25, 750, y + 25,
+                fill="#999999", dash=(5, 5)
+            )
+
+            car = self.race_canvas.create_rectangle(
+                20, y, 60, y + 25,
+                fill=color, outline="black"
+            )
+            self.race_cars[name] = car
+
+        self.race_canvas.create_line(
+            750, 0, 750, 300,
+            fill="black", width=4
+        )
+
+        self.race_result.config(text="🏁 Race in progress...")
+        self.race_step()
+
+    def race_step(self):
+        if not self.racing:
+            return
+
+        finished = None
+
+        for name in self.race_positions:
+            # Random speed variation makes the race less predictable.
+            movement = self.race_speeds[name] * random.uniform(0.75, 1.25)
+            self.race_positions[name] += movement
+
+            i = [c[0] for c in self.cars].index(name)
+            y = 35 + i * 55
+
+            self.race_canvas.coords(
+                self.race_cars[name],
+                self.race_positions[name], y,
+                self.race_positions[name] + 40, y + 25
+            )
+
+            if self.race_positions[name] + 40 >= 750:
+                finished = name
+                break
+
+        if finished:
+            self.finish_race(finished)
+        else:
+            self.root.after(45, self.race_step)
+
+    def finish_race(self, winner):
+        self.racing = False
+        chosen = self.car_choice.get()
+
+        if winner == chosen:
+            # 5x total return: original stake is not separately returned
+            # because it was already removed from the balance.
+            winnings = self.current_bet = 0  # placeholder cleared below
+            # The amount was not stored, so recover it from the entry.
+            amount = float(self.car_bet_entry.get())
+            payout = amount * 5
+            self.money += payout
+            self.race_result.config(
+                text=f"🏆 {winner} car won! You won ${payout:,.2f}."
+            )
+        else:
+            self.race_result.config(
+                text=f"🏁 {winner} car won. Your {chosen} car lost ${float(self.car_bet_entry.get()):,.2f}."
+            )
+
+        self.update_money()
+
+    # ---------- Game 2: Three-picture game ----------
+
+    def show_picture_game(self):
+        self.clear_screen()
+        self.title(
+            "🎰 3-Picture Game",
+            "Pull the lever. Match all three symbols to win."
+        )
+
+        controls = tk.Frame(self.game_frame, bg="#f4f4f4")
+        controls.pack(pady=5)
+
+        tk.Label(controls, text="Bet:", bg="#f4f4f4").pack(side="left", padx=5)
+
+        self.picture_bet_entry = tk.Entry(controls, width=12)
+        self.picture_bet_entry.insert(0, "50")
+        self.picture_bet_entry.pack(side="left", padx=5)
+
+        self.lever_button = tk.Button(
+            controls, text="PULL LEVER",
+            command=self.pull_lever,
+            font=("Arial", 12, "bold"),
+            bg="#d9534f", fg="white",
+            padx=15, pady=8
+        )
+        self.lever_button.pack(side="left", padx=15)
+
+        self.slot_frame = tk.Frame(
+            self.game_frame, bg="#222222",
+            bd=8, relief="ridge"
+        )
+        self.slot_frame.pack(pady=35)
+
+        self.slot_labels = []
+        for _ in range(3):
+            label = tk.Label(
+                self.slot_frame, text="❓",
+                font=("Arial", 60),
+                width=3, height=1,
+                bg="white"
+            )
+            label.pack(side="left", padx=8, pady=8)
+            self.slot_labels.append(label)
+
+        self.picture_result = tk.Label(
+            self.game_frame,
+            text="Insert a bet and pull the lever.",
+            font=("Arial", 14, "bold"),
+            bg="#f4f4f4"
+        )
+        self.picture_result.pack()
+
+        self.picture_symbols = ["🍒", "🍋", "🔔", "⭐", "7️⃣"]
+
+    def pull_lever(self):
+        amount = self.money_amount(self.picture_bet_entry)
+        if amount is None:
+            return
+
+        self.money -= amount
+        self.update_money()
+        self.lever_button.config(state="disabled")
+        self.picture_result.config(text="Spinning...")
+
+        self.spin_count = 0
+        self.spin_animation(amount)
+
+    def spin_animation(self, amount):
+        if self.spin_count < 15:
+            for label in self.slot_labels:
+                label.config(text=random.choice(self.picture_symbols))
+            self.spin_count += 1
+            self.root.after(80, lambda: self.spin_animation(amount))
+        else:
+            results = [random.choice(self.picture_symbols) for _ in range(3)]
+
+            for label, symbol in zip(self.slot_labels, results):
+                label.config(text=symbol)
+
+            if results[0] == results[1] == results[2]:
+                payout = amount * 8
+                self.money += payout
+                self.picture_result.config(
+                    text=f"🎉 JACKPOT! Three {results[0]} symbols! You won ${payout:,.2f}."
+                )
+            elif len(set(results)) == 2:
+                payout = amount * 2
+                self.money += payout
+                self.picture_result.config(
+                    text=f"Nice! Two symbols matched. You won ${payout:,.2f}."
+                )
+            else:
+                self.picture_result.config(
+                    text=f"No match this time. You lost ${amount:,.2f}."
+                )
+
+            self.update_money()
+            self.lever_button.config(state="normal")
+
+    # ---------- Game 3: Color Wheel ----------
+
+    def show_color_wheel(self):
+        self.clear_screen()
+        self.title(
+            "🎡 Color Wheel",
+            "Choose red, black, or green, then spin the wheel."
+        )
+
+        controls = tk.Frame(self.game_frame, bg="#f4f4f4")
+        controls.pack(pady=5)
+
+        tk.Label(controls, text="Bet:", bg="#f4f4f4").grid(row=0, column=0, padx=5)
+
+        self.color_bet_entry = tk.Entry(controls, width=12)
+        self.color_bet_entry.insert(0, "50")
+        self.color_bet_entry.grid(row=0, column=1, padx=5)
+
+        tk.Label(controls, text="Choose:", bg="#f4f4f4").grid(row=0, column=2, padx=10)
+
+        self.color_choice = tk.StringVar(value="Red")
+
+        for col, color in enumerate(["Red", "Black", "Green"], start=3):
+            tk.Radiobutton(
+                controls, text=color,
+                variable=self.color_choice,
+                value=color,
+                bg="#f4f4f4"
+            ).grid(row=0, column=col, padx=3)
+
+        self.spin_button = tk.Button(
+            controls, text="SPIN WHEEL",
+            command=self.spin_color_wheel,
+            font=("Arial", 11, "bold")
+        )
+        self.spin_button.grid(row=0, column=6, padx=15)
+
+        self.wheel_canvas = tk.Canvas(
+            self.game_frame, width=360, height=360,
+            bg="#f4f4f4", highlightthickness=0
+        )
+        self.wheel_canvas.pack(pady=15)
+
+        self.draw_wheel(0)
+
+        self.wheel_result = tk.Label(
+            self.game_frame,
+            text="Choose a color and place your bet.",
+            font=("Arial", 14, "bold"),
+            bg="#f4f4f4"
+        )
+        self.wheel_result.pack()
+
+        self.wheel_angle = 0
+
+    def draw_wheel(self, rotation=0):
+        self.wheel_canvas.delete("all")
+
+        colors = ["red", "black", "red", "black", "red", "black", "green"]
+        labels = ["R", "B", "R", "B", "R", "B", "G"]
+
+        cx, cy, radius = 180, 180, 145
+        extent = 360 / len(colors)
+
+        for i, color in enumerate(colors):
+            start = i * extent + rotation
+
+            self.wheel_canvas.create_arc(
+                cx - radius, cy - radius,
+                cx + radius, cy + radius,
+                start=start, extent=extent,
+                fill=color, outline="white", width=2
+            )
+
+        self.wheel_canvas.create_oval(
+            cx - 30, cy - 30, cx + 30, cy + 30,
+            fill="#eeeeee", outline="black", width=2
+        )
+
+        # Pointer at the top.
+        self.wheel_canvas.create_polygon(
+            180, 15, 168, 0, 192, 0,
+            fill="#f1c40f", outline="black"
+        )
+
+        self.wheel_canvas.create_text(
+            180, 180, text="SPIN",
+            font=("Arial", 12, "bold")
+        )
+
+    def spin_color_wheel(self):
+        amount = self.money_amount(self.color_bet_entry)
+        if amount is None:
+            return
+
+        self.money -= amount
+        self.update_money()
+
+        self.spin_button.config(state="disabled")
+        self.wheel_result.config(text="The wheel is spinning...")
+
+        self.wheel_steps = 0
+        self.wheel_total_steps = random.randint(30, 45)
+        self.wheel_speed = 30
+        self.wheel_result_color = random.choices(
+            ["Red", "Black", "Green"],
+            weights=[48, 48, 4]
+        )[0]
+
+        self.animate_wheel(amount)
+
+    def animate_wheel(self, amount):
+        if self.wheel_steps < self.wheel_total_steps:
+            self.wheel_angle = (self.wheel_angle + self.wheel_speed) % 360
+            self.draw_wheel(self.wheel_angle)
+            self.wheel_steps += 1
+
+            # Gradually slow down near the end.
+            if self.wheel_steps > self.wheel_total_steps - 10:
+                self.wheel_speed = max(5, self.wheel_speed - 3)
+
+            self.root.after(40, lambda: self.animate_wheel(amount))
+        else:
+            result = self.wheel_result_color
+
+            # Extra final redraw to make the result visually obvious.
+            self.draw_wheel(self.wheel_angle)
+
+            if result == self.color_choice.get():
+                if result == "Green":
+                    payout = amount * 14
+                else:
+                    payout = amount * 2
+
+                self.money += payout
+                self.wheel_result.config(
+                    text=f"🎉 It landed on {result}! You won ${payout:,.2f}."
+                )
+            else:
+                self.wheel_result.config(
+                    text=f"It landed on {result}. You lost ${amount:,.2f}."
+                )
+
+            self.update_money()
+            self.spin_button.config(state="normal")
+
+    # ---------- Saving / Loading ----------
+
+    def save_game(self):
+        filename = filedialog.asksaveasfilename(
+            title="Save Game",
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt")]
+        )
+
+        if not filename:
+            return
+
+        try:
+            with open(filename, "w") as file:
+                file.write(f"{self.money:.2f}\n")
+
+            messagebox.showinfo("Saved", "Game balance saved successfully.")
+        except OSError as e:
+            messagebox.showerror("Save Error", str(e))
+
+    def load_game(self):
+        filename = filedialog.askopenfilename(
+            title="Load Game",
+            filetypes=[("Text files", "*.txt")]
+        )
+
+        if not filename:
+            return
+
+        try:
+            with open(filename, "r") as file:
+                value = file.readline().strip()
+
+            balance = float(value)
+
+            if balance < 0:
+                raise ValueError
+
+            self.money = balance
+            self.update_money()
+            messagebox.showinfo("Loaded", "Game balance loaded successfully.")
+        except (OSError, ValueError):
+            messagebox.showerror(
+                "Load Error",
+                "The selected file does not contain a valid saved balance."
+            )
+
+    def on_close(self):
+        if messagebox.askyesno("Exit", "Exit Lucky Lounge?"):
+            self.root.destroy()
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = GamblingApp(root)
+    root.mainloop()
